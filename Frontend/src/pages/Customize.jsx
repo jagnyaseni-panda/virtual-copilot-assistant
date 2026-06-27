@@ -8,6 +8,7 @@ import image5 from "../assets/VA5.png"
 import image6 from "../assets/VA6.png"
 import image7 from "../assets/VA7.png"
 import {RiImageAddLine} from "react-icons/ri"
+import {MdKeyboardBackspace} from "react-icons/md"
 import { userDataContext } from '../context/userContext'
 import { useNavigate } from 'react-router-dom'
 
@@ -22,6 +23,7 @@ function Customize() {
   }
   return (
     <div className='w-full h-[100vh] bg-gradient-to-t from-[black] to-[#030353] flex justify-center items-center flex-col p-[20px]'>
+      <MdKeyboardBackspace className='absolute top-[30px] left-[30px] text-white w-[25px] h-[25px] cursor-pointer' onClick={()=>navigate("/")}/>
       <h1 className='text-white mb-[40px] text-[30px] text-center'>Select your <span className='text-blue-200'>Assistant Image</span></h1>
       <div className='w-full max-w-[900px] flex justify-center items-center flex-wrap gap-[15px]'>
         <Card image={image1}/>
