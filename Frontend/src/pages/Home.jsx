@@ -1,12 +1,16 @@
-import React from 'react'
+import React, { useRef, useState } from 'react'
 import { useContext } from 'react'
 import { userDataContext } from '../context/userContext'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
 function Home() {
-    const {userData,serverUrl,setUserData} = useContext(userDataContext)
+    const {userData,serverUrl,setUserData,getGeminiResponse} = useContext(userDataContext)
     const navigate = useNavigate()
+    const [listening,setListening] = useState(false)
+    const isSpeakingRef = useRef(false)
+    const recognitionRef = useRef(null)
+    const synth = window.speechSynthesis
     const handleLogOut = async() =>{
         try {
             const result = await axios.get(`${serverUrl}/api/auth/logout`,
@@ -20,6 +24,104 @@ function Home() {
         }
     }
 
+    const speak = (text) =>{
+      const utterence = new SpeechSynthesisUtterance(text)
+      synth.speak(utterence)
+    }
+
+    const handleCommand = (data) =>{
+      const {type,userInput,response} = data
+      speak(response);
+
+      if(type == 'google-search'){
+        const query = encodeURIComponent(userInput);
+        window.open(`https://www.google.com/search?q=${query}`,'_blank');
+      }
+
+      if(type == 'calculator-open'){
+        window.open(`https://www.google.com/search?q=calculator`,'_blank');
+      }
+
+      if(type == 'instagram-open'){
+        window.open(`https://www.instagram.com`,'_blank');
+      }
+
+      if(type == 'facebook-open'){
+        window.open(`https://www.facebook.com`,'_blank');
+      }
+
+      if(type == 'weather-show'){
+        window.open(`https://www.google.com/search?q=weather`,'_blank');
+      }
+
+      if(type == 'weather-search'){
+        const query = encodeURIComponent(userInput);
+        window.open(`https://www.youtube.com/results?search_query=${query}`,'_blank');
+      }
+    }
+
+    useEffect(()=>{
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+
+      const recognition = new SpeechRecognition()
+      recognition.continuous = true,
+      recognition.lang = 'en-US'
+      recognitionRef.current = recognition
+      
+      const isRecognizingRef = {current:false}
+      const safeRecognition = () =>{
+        if(!isSpeakingRef && !isRecognizingRef){
+          try {
+            recognition.start();
+            console.log("Recognition requested to start")
+          } catch (err) {
+            if(err.name !== "InvalidStateError"){
+              console.log("Start error: ",err)
+            }
+          }
+        }
+      }
+
+      recognition.onstart = () =>{
+        console.log("Recognition started");
+        isRecognizingRef.current = true;
+        setListening(true);
+      }
+
+      recognition.onend = () =>{
+        console.log("Recognition ended");
+        isRecognizingRef.current = false;
+        setListening(false);
+
+        if(!isSpeakingRef.current){
+          setTimeout(() =>{
+            safeRecognition();
+          },1000);  //Delay avoid rapid loop
+        }
+      };
+
+      recognition.onerror = (event) =>{
+        console.warn("Recognition error: ",event.error);
+        isRecognizingRef.current = false;
+        setListening(false);
+
+        if(event.error !== "aborted" && !isSpeakingRef.current){
+          setTimeout(() =>{
+            safeRecognition();
+          },1000);
+        }
+      }
+
+      recognition.onresult = async(e) =>{
+        const transcript = e.results[e.results.length-1][0].transcript.trim()
+        console.log("heard: " + transcript)
+
+        if (transcript.toLowerCase().includes(userData.assistantName.toLowerCase())) {
+          const data = await getGeminiResponse(transcript)
+          handleCommand(data)
+        }
+      }
+    },[])
   return (
     <div className='w-full h-[100vh] bg-gradient-to-t from-[black] to-[#02023d] flex justify-center items-center flex-col gap-[15px]'>
         <button className="min-w-[150px] h-[60px] mt-[30px] text-black cursor-pointer absolute top-[20px] right-[20px] font-semibold bg-white rounded-full text-[19px]" onClick={handleLogOut}>Log Out</button>
