@@ -26,6 +26,11 @@ function Home() {
 
     const speak = (text) =>{
       const utterence = new SpeechSynthesisUtterance(text)
+      isSpeakingRef.current = true
+      utterence.onend = () =>{
+        isSpeakingRef.current = false
+        recognitionRef.current?.start()
+      }
       synth.speak(utterence)
     }
 
@@ -69,8 +74,9 @@ function Home() {
       recognitionRef.current = recognition
       
       const isRecognizingRef = {current:false}
+
       const safeRecognition = () =>{
-        if(!isSpeakingRef && !isRecognizingRef){
+        if(!isSpeakingRef.current && !isRecognizingRef.current){
           try {
             recognition.start();
             console.log("Recognition requested to start")
@@ -117,10 +123,28 @@ function Home() {
         console.log("heard: " + transcript)
 
         if (transcript.toLowerCase().includes(userData.assistantName.toLowerCase())) {
+          recognition.stop()
+          isRecognizingRef.current = false
+          setListening(false)
           const data = await getGeminiResponse(transcript)
           handleCommand(data)
         }
       }
+
+      const fallback = setInterval(() => {
+        if(!isSpeakingRef.current && !isRecognizingRef.current){
+          safeRecognition()
+        }
+      },10000)
+      safeRecognition()
+
+      return ()=>{
+        recognition.stop()
+        setListening(false)
+        isRecognizingRef.current = false
+        clearInterval(fallback)
+      }
+
     },[])
   return (
     <div className='w-full h-[100vh] bg-gradient-to-t from-[black] to-[#02023d] flex justify-center items-center flex-col gap-[15px]'>
