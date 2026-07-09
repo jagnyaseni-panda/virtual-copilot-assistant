@@ -14,6 +14,7 @@ function Home() {
     const [listening,setListening] = useState(false)
     const [userText,setUserText] = useState("")
     const [aiText,setAiText] = useState("")
+    const [ham,setHam] = useState(false)
     const isSpeakingRef = useRef(false)
     const recognitionRef = useRef(null)
     const isRecognizingRef = useRef(false)
@@ -32,12 +33,18 @@ function Home() {
     }
 
     const startRecognition = () =>{
-      try {
-        recognitionRef.current?.start();
-        setListening(true);
-      } catch (error) {
-        if(!error.message.includes("start")){
-          console.log("Recognition error: ",error);
+      if(!isSpeakingRef.current && !isRecognizingRef.current){
+        try {
+          recognitionRef.current?.start();
+          console.log("Recognition requested to start")
+          //setListening(true);
+        } catch (error) {
+          // if(!error.message.includes("start")){
+          //   console.log("Recognition error: ",error);
+          // }
+          if(error.name !== "InvalidStateError"){
+            console.error("Start error: ",error)
+          }
         }
       }
     }
@@ -54,8 +61,11 @@ function Home() {
       utterence.onend = () =>{
         setAiText("")
         isSpeakingRef.current = false
-        startRecognition()
+        setTimeout(()=>{
+          startRecognition()
+        },800)
       }
+      synth.cancel()
       synth.speak(utterence)
     }
 
@@ -96,20 +106,22 @@ function Home() {
       const recognition = new SpeechRecognition()
       recognition.continuous = true,
       recognition.lang = 'en-US'
+      recognition.interimResults = false
       recognitionRef.current = recognition
 
-      const safeRecognition = () =>{
-        if(!isSpeakingRef.current && !isRecognizingRef.current){
-          try {
-            recognition.start();
-            console.log("Recognition requested to start")
-          } catch (err) {
-            if(err.name !== "InvalidStateError"){
-              console.log("Start error: ",err)
-            }
-          }
-        }
-      }
+
+      // const safeRecognition = () =>{
+      //   if(!isSpeakingRef.current && !isRecognizingRef.current){
+      //     try {
+      //       recognition.start();
+      //       console.log("Recognition requested to start")
+      //     } catch (err) {
+      //       if(err.name !== "InvalidStateError"){
+      //         console.log("Start error: ",err)
+      //       }
+      //     }
+      //   }
+      // }
 
       recognition.onstart = () =>{
         //console.log("Recognition started");
@@ -122,10 +134,18 @@ function Home() {
         isRecognizingRef.current = false;
         setListening(false);
 
-        if(!isSpeakingRef.current){
+        if(isMounted && !isSpeakingRef.current){
           setTimeout(() =>{
-            safeRecognition();
-          },1000);  //Delay avoid rapid loop
+            if (isMounted) {
+              try {
+                recognition.start()
+                console.log("Recognition requested to start")
+              } catch (e) {
+                if(e.name !== "InvalidStateError"){
+                console.error(e)
+              }
+            }
+          },1000)
         }
       };
 
@@ -174,12 +194,20 @@ function Home() {
 
     },[])
   return (
-    <div className='w-full h-[100vh] bg-gradient-to-t from-[black] to-[#02023d] flex justify-center items-center flex-col gap-[15px]'>
-      <CgMenuRight className='lg:hidden text-white absolute top-[20px] right-[20px] w-[25px] h-[25px]'/>
-      <div className='absolute top-0 w-full h-full bg-[#00000053] backdrop-blur-lg p-[20px] flex flex-col gap-[20px]'>
-        <RxCross1 className='text-white absolute top-[20px] right-[20px] w-[25px] h-[25px]'/>
+    <div className='w-full h-[100vh] bg-gradient-to-t from-[black] to-[#02023d] flex justify-center items-center flex-col gap-[15px] overflow-hidden'>
+      <CgMenuRight className='lg:hidden text-white absolute top-[20px] right-[20px] w-[25px] h-[25px]' onClick={()=>setHam(true)}/>
+      <div className={`absolute top-0 w-full h-full bg-[#00000053] backdrop-blur-lg p-[20px] flex flex-col gap-[20px] lg:hidden items-start ${ham?"translate-x-0":"translate-x-full"}transition-transform`}>
+        <RxCross1 className='text-white absolute top-[20px] right-[20px] w-[25px] h-[25px]' onClick={()=>setHam(false)}/>
         <button className="min-w-[150px] h-[60px] mt-[30px] text-black cursor-pointer font-semibold bg-white rounded-full text-[19px]" onClick={handleLogOut}>Log Out</button>
         <button className="min-w-[150px] h-[60px] text-black font-semibold cursor-pointer bg-white rounded-full text-[19px]" onClick={()=>navigate("/customize")} >Customize your Assistant</button>
+        <div className='w-full h-[2px] bg-gray-400'>
+          <h1 className='text-white font-semibold text-[19px]'>History</h1>
+          <div className='w-full h-[400px] gap-[20px] overflow-auto flex flex-col overflow-y-auto'>
+            {userData.history?.map((his)=>(
+              <span className='text-gray-200 text-[18px] truncate'>{his}</span>
+            ))}
+          </div>
+        </div>
       </div>
         <button className="min-w-[150px] h-[60px] mt-[30px] text-black cursor-pointer absolute hidden lg:block top-[20px] right-[20px] font-semibold bg-white rounded-full text-[19px]" onClick={handleLogOut}>Log Out</button>
         <button className="min-w-[150px] h-[60px] mt-[30px] text-black font-semibold cursor-pointer bg-white absolute hidden lg:block top-[100px] right-[20px] rounded-full text-[19px] px-[20px] py-[10px]" onClick={()=>navigate("/customize")} >Customize your Assistant</button>
