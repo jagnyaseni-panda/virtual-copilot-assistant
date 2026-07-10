@@ -109,6 +109,21 @@ function Home() {
       recognition.interimResults = false
       recognitionRef.current = recognition
 
+      let isMounted = true; //flag to avoid setStatecon unmounted component
+      //Start recognition after 1 second delay only if component still mounted
+
+      const startTimeout = setTimeout(()=>{
+        if(isMounted && !isSpeakingRef.current && !isRecognizingRef.current){
+          try {
+            recognition.start()
+            console.log("Recognition requested to start")
+          } catch (e) {
+            if(e.name !== "InvalidStateError"){
+              console.error(e)
+            }
+          }
+        }
+      },1000)
 
       // const safeRecognition = () =>{
       //   if(!isSpeakingRef.current && !isRecognizingRef.current){
@@ -143,20 +158,31 @@ function Home() {
               } catch (e) {
                 if(e.name !== "InvalidStateError"){
                 console.error(e)
+                }
               }
             }
           },1000)
         }
-      };
+      }
 
       recognition.onerror = (event) =>{
         console.warn("Recognition error: ",event.error);
         isRecognizingRef.current = false;
         setListening(false);
 
-        if(event.error !== "aborted" && !isSpeakingRef.current){
+        if(event.error !== "aborted" && isMounted && !isSpeakingRef.current){
           setTimeout(() =>{
-            safeRecognition();
+            //safeRecognition();
+            if (isMounted) {
+              try {
+                recognition.start()
+                console.log("Recognition restarted after error")
+              } catch (e) {
+                if(e.name !== "InvalidStateError"){
+                console.error(e)
+                }
+              }
+            }
           },1000);
         }
       }
@@ -178,21 +204,32 @@ function Home() {
         }
       }
 
-      const fallback = setInterval(() => {
-        if(!isSpeakingRef.current && !isRecognizingRef.current){
-          safeRecognition()
-        }
-      },10000)
-      safeRecognition()
+      // const fallback = setInterval(() => {
+      //   if(!isSpeakingRef.current && !isRecognizingRef.current){
+      //     safeRecognition()
+      //   }
+      // },10000)
+      // safeRecognition()
+
+      //window.speechSynthesis.onvoiceschanged = () =>{
+        const greeting = new SpeechSynthesisUtterance(`Hello ${userData.name}, What can I help you with ?`);
+        greeting.lang = 'hi-IN'
+        // greeting.onend = () =>{
+        //   startTimeout(); //Start listening after speech
+        // }
+        window.speechSynthesis.speak(greeting)
+      //}
 
       return ()=>{
+        isMounted = false
+        clearTimeout(startTimeout)
         recognition.stop()
         setListening(false)
         isRecognizingRef.current = false
-        clearInterval(fallback)
+        //clearInterval(fallback)
       }
-
     },[])
+
   return (
     <div className='w-full h-[100vh] bg-gradient-to-t from-[black] to-[#02023d] flex justify-center items-center flex-col gap-[15px] overflow-hidden'>
       <CgMenuRight className='lg:hidden text-white absolute top-[20px] right-[20px] w-[25px] h-[25px]' onClick={()=>setHam(true)}/>
